@@ -1,0 +1,4 @@
+Model the realtime detection system as describted in this link https://www.coursera.org/learn/nlp-sequence-models/ungradedLab/6FGcS/lab
+
+TODO: fix the error of test.py script
+TODO: check Y plot

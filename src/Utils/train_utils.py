@@ -1,0 +1,206 @@
+import numpy as np
+from Utils.td_utils import load_raw_audio, match_target_amplitude, graph_spectrogram
+
+class TrainingExamplesGenerator:
+    """
+    Use this to generate training examples
+    """
+    def __init__(self, background_audio_length_ms=10000, no_of_ones_sequence=50, output_sequence_length=1375):
+        self.positives = []
+        self.negatives = []
+        self.backgrounds = []
+        self.audio_length = background_audio_length_ms
+        self._prev_segments = []
+        self.no_of_ones = no_of_ones_sequence
+        self.Ty = output_sequence_length
+        
+        
+    def load_data(self, path = ''):
+        """
+        load the data from the path. The path has positives, negatives, and backgrounds folders 
+        each containing respective audio files
+        Args: 
+            path: string => folder path
+        """
+        self.positives, self.negatives, self.backgrounds = load_raw_audio(path)
+
+    def _get_random_time_segment(self, segment_ms):
+        """
+        Gets a random time segment of duration segment_ms in a 10,000 ms audio clip.
+        
+        Arguments:
+        segment_ms -- the duration of the audio clip in ms ("ms" stands for "milliseconds")
+        
+        Returns:
+        segment_time -- a tuple of (segment_start, segment_end) in ms
+        """
+        
+        segment_start = np.random.randint(low=0, high=self.audio_length-segment_ms)   # Make sure segment doesn't run past the 10sec background 
+        segment_end = segment_start + segment_ms - 1
+        return (segment_start, segment_end)
+    
+    def _is_overlapping(self, segment_time):
+        """
+        Checks if the time of a segment overlaps with the times of existing segments.
+        
+        Arguments:
+        segment_time -- a tuple of (segment_start, segment_end) for the new segment
+        
+        Returns:
+        True if the time segment overlaps with any of the existing segments, False otherwise
+        """
+        
+        segment_start, segment_end = segment_time
+        
+        # Step 1: Initialize overlap as a "False" flag. (≈ 1 line)
+        overlap = False
+        
+        # Step 2: loop over the previous_segments start and end times.
+        # Compare start/end times and set the flag to True if there is an overlap (≈ 3 lines)
+        for previous_start, previous_end in self._previous_segments:
+            if segment_start <= previous_end and previous_start <= segment_end:
+                overlap = True
+
+        return overlap
+
+    def insert_audio_clip(self, background, audio_clip):
+        """
+        Insert a new audio segment over the background noise at a random time step, ensuring that the 
+        audio segment does not overlap with existing segments.
+        
+        Arguments:
+        background -- a 10 second background audio recording.  
+        audio_clip -- the audio clip to be inserted/overlaid. 
+        
+        Returns:
+        new_background -- the updated background audio
+        """
+        
+        # Get the duration of the audio clip in ms
+        segment_ms = len(audio_clip)
+        
+        # Step 1: Use one of the helper functions to pick a random time segment onto which to insert 
+        # the new audio clip. (≈ 1 line)
+        segment_time = self._get_random_time_segment(segment_ms)
+        
+        # Step 2: Check if the new segment_time overlaps with one of the previous_segments. If so, keep 
+        # picking new segment_time at random until it doesn't overlap. (≈ 2 lines)
+        while self._is_overlapping(segment_time):
+            segment_time = self._get_random_time_segment(segment_ms)
+
+        # Step 3: Append the new segment_time to the list of previous_segments (≈ 1 line)
+        self._previous_segments.append(segment_time)
+        
+        # Step 4: Superpose audio segment and background
+        new_background = background.overlay(audio_clip, position = segment_time[0])
+        
+        return new_background, segment_time
+
+    def _get_y_labels(self, segment_end_ms):
+        """
+        Update the label vector y. The labels of the 50 output steps strictly after the end of the segment 
+        should be set to 1. By strictly we mean that the label of segment_end_y should be 0 while, the
+        50 following labels should be ones.
+        
+        
+        Arguments:
+        segment_end_ms -- the end time of the segment in ms
+        
+        Returns:
+        y -- updated labels
+        """
+        
+        # duration of the background (in terms of spectrogram time-steps)
+        segment_end_y = int(segment_end_ms * self.Ty / self.audio_length)
+        
+        # Add 1 to the correct index in the background label (y)
+        y = np.zeros((1,self.Ty))
+        start = segment_end_y + 1
+        end = segment_end_y + self.no_of_ones + 1
+        y[:,start:end] = 1
+        
+        return y
+
+    def _create_training_example(self, saved=False, name='untitled'):
+        """
+        Creates a training example with a given background, activates, and negatives.
+        
+        Arguments:
+        name -- file name to be saved
+        
+        Returns:
+        x -- the spectrogram of the training example
+        y -- the label at each time step of the spectrogram
+        """
+        
+        # Set the random seed
+        np.random.seed(20)
+
+        # choose background
+        random_index = np.random.randint(len(self.backgrounds))
+        background = self.backgrounds[random_index]
+        
+        # Make background quieter
+        background = background - 20
+
+        # Step 2: Initialize segment times as an empty list (≈ 1 line)
+        self._previous_segments = []
+        
+        # Select 0-4 random "activate" audio clips from the entire list of "activates" recordings
+        number_of_activates = np.random.randint(1, 5)
+        print(number_of_activates)
+        random_indices = np.random.randint(len(self.positives), size=number_of_activates)
+        random_activates = [self.positives[i] for i in random_indices]
+        
+        # Step 3: Loop over randomly selected "activate" clips and insert in background
+        for random_activate in random_activates:
+            # Insert the audio clip on the background
+            background, segment_time = self.insert_audio_clip(background, random_activate)
+            # Retrieve segment_start and segment_end from segment_time
+            segment_start, segment_end = segment_time
+            # Insert labels in "y"
+            y = self._get_y_labels(segment_end)
+
+        # Select 0-2 random negatives audio recordings from the entire list of "negatives" recordings
+        number_of_negatives = np.random.randint(1, 3)
+        print(number_of_negatives)
+        random_indices = np.random.randint(len(self.negatives), size=number_of_negatives)
+        random_negatives = [self.negatives[i] for i in random_indices]
+
+        # Step 4: Loop over randomly selected negative clips and insert in background
+        for random_negative in random_negatives:
+            # Insert the audio clip on the background 
+            background, _ = self.insert_audio_clip(background, random_negative)
+        
+        # Standardize the volume of the audio clip 
+        background = match_target_amplitude(background, -20.0)
+
+        # Export new training example 
+        if saved:
+            file_handle = background.export(name + ".wav", format="wav")
+            print("File ({}.wav) was saved in your directory.".format(name))
+        
+        # Get and plot spectrogram of the new recording (background with superposition of positive and negatives)
+        x = graph_spectrogram("train.wav")
+        
+        return x, y
+
+    def generate_examples(self, count, saved=False, path=''):
+        """
+        Creates a training example with a given background, activates, and negatives.
+        
+        Arguments:
+        count -- number of examples to generate
+        
+        Returns:
+        x -- the spectrogram of the training examples
+        y -- the label at each time step of the spectrograms
+        """
+        X = []
+        Y = []
+        for i in range(count):
+            x, y = self._create_training_example(name=path+str(i), saved=True)
+            X.append(x)
+            y.append(y)
+        
+        return X, Y
