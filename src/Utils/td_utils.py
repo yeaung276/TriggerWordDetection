@@ -1,12 +1,17 @@
 ### This file is from the coursera course-Sequence Models(Trigger Word Detection System)
-import matplotlib.pyplot as plt
-from scipy.io import wavfile
 import os
+import sys
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.io import wavfile
 from pydub import AudioSegment
 
 # Calculate and plot spectrogram for a wav audio file
 def graph_spectrogram(wav_file):
-    rate, data = get_wav_info(wav_file)
+    if type(wav_file) is str:
+        rate, data = get_wav_info(wav_file)
+    else:
+        data = wav_file
     nfft = 200 # Length of each window segment
     fs = 8000 # Sampling frequencies
     noverlap = 120 # Overlap between windows
@@ -46,3 +51,16 @@ def load_raw_audio(path):
             negative = AudioSegment.from_wav(path + "/negatives/"+filename)
             negatives.append(negative)
     return activates, negatives, backgrounds
+
+
+class Logger:
+    def __init__(self, filename):
+        self.terminal = sys.stdout
+        self.log = open(filename, 'a')
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        pass

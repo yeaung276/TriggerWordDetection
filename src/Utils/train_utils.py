@@ -5,15 +5,21 @@ class TrainingExamplesGenerator:
     """
     Use this to generate training examples
     """
-    def __init__(self, background_audio_length_ms=10000, no_of_ones_sequence=50, output_sequence_length=1375):
+
+    data_point_per_milisecond = 44.100
+
+    def __init__(self, background_audio_length_ms=10000, no_of_ones_sequence=50, output_sequence_length=1375, seed=0, log=False):
         self.positives = []
         self.negatives = []
         self.backgrounds = []
         self.audio_length = background_audio_length_ms
+        self.Tx = int(background_audio_length_ms * self.data_point_per_milisecond)
         self._prev_segments = []
         self.no_of_ones = no_of_ones_sequence
         self.Ty = output_sequence_length
-        
+        self.log = log
+        # Set the random seed
+        np.random.seed(seed)
         
     def load_data(self, path = ''):
         """
@@ -21,8 +27,14 @@ class TrainingExamplesGenerator:
         each containing respective audio files
         Args: 
             path: string => folder path
+            log: flag => whether to return the dataset information
         """
         self.positives, self.negatives, self.backgrounds = load_raw_audio(path)
+        if self.log:
+            print("background length: " + str(len(self.backgrounds[0])),"\n")
+            print("Number of background: " + str(len(self.backgrounds)),"\n")
+            print("Number of activate examples: " + str(len(self.positives)),"\n")
+            print("Number of negative examples: " + str(len(self.negatives)),"\n")
 
     def _get_random_time_segment(self, segment_ms):
         """
@@ -96,7 +108,7 @@ class TrainingExamplesGenerator:
         
         return new_background, segment_time
 
-    def _get_y_labels(self, segment_end_ms):
+    def _get_y_labels(self, y, segment_end_ms):
         """
         Update the label vector y. The labels of the 50 output steps strictly after the end of the segment 
         should be set to 1. By strictly we mean that the label of segment_end_y should be 0 while, the
@@ -114,10 +126,9 @@ class TrainingExamplesGenerator:
         segment_end_y = int(segment_end_ms * self.Ty / self.audio_length)
         
         # Add 1 to the correct index in the background label (y)
-        y = np.zeros((1,self.Ty))
         start = segment_end_y + 1
         end = segment_end_y + self.no_of_ones + 1
-        y[:,start:end] = 1
+        y[start:end,:] = 1
         
         return y
 
@@ -132,13 +143,13 @@ class TrainingExamplesGenerator:
         x -- the spectrogram of the training example
         y -- the label at each time step of the spectrogram
         """
-        
-        # Set the random seed
-        np.random.seed(20)
 
         # choose background
         random_index = np.random.randint(len(self.backgrounds))
         background = self.backgrounds[random_index]
+
+        # initialize y
+        y = np.zeros((self.Ty,1))
         
         # Make background quieter
         background = background - 20
@@ -148,7 +159,6 @@ class TrainingExamplesGenerator:
         
         # Select 0-4 random "activate" audio clips from the entire list of "activates" recordings
         number_of_activates = np.random.randint(1, 5)
-        print(number_of_activates)
         random_indices = np.random.randint(len(self.positives), size=number_of_activates)
         random_activates = [self.positives[i] for i in random_indices]
         
@@ -159,11 +169,10 @@ class TrainingExamplesGenerator:
             # Retrieve segment_start and segment_end from segment_time
             segment_start, segment_end = segment_time
             # Insert labels in "y"
-            y = self._get_y_labels(segment_end)
+            y = self._get_y_labels(y, segment_end)
 
         # Select 0-2 random negatives audio recordings from the entire list of "negatives" recordings
         number_of_negatives = np.random.randint(1, 3)
-        print(number_of_negatives)
         random_indices = np.random.randint(len(self.negatives), size=number_of_negatives)
         random_negatives = [self.negatives[i] for i in random_indices]
 
@@ -174,16 +183,32 @@ class TrainingExamplesGenerator:
         
         # Standardize the volume of the audio clip 
         background = match_target_amplitude(background, -20.0)
-
+        if self.log:
+            print('{}\t{}\t{}'.format(number_of_activates, number_of_negatives, number_of_activates+number_of_negatives), end='')
         # Export new training example 
         if saved:
             file_handle = background.export(name + ".wav", format="wav")
             print("File ({}.wav) was saved in your directory.".format(name))
         
         # Get and plot spectrogram of the new recording (background with superposition of positive and negatives)
-        x = graph_spectrogram("train.wav")
+        sequence = self._pad_sequence(background.get_array_of_samples())
+        x = graph_spectrogram(sequence).swapaxes(0,1)
         
         return x, y
+
+    def _pad_sequence(self, sequence):
+        """
+        Make sure the sequence has correct length by padding with zeros at the end or cutting it 
+        Args - sequence: sequence to be padded or cutted
+        """
+        length = len(sequence)
+        if length == self.Tx:
+            return np.array(sequence)
+        elif length < self.Tx:
+            sequence.extend([0 for i in range(self.Tx-length)])
+            return np.array(sequence)
+        else:
+            return np.array(sequence[:self.Tx])
 
     def generate_examples(self, count, saved=False, path=''):
         """
@@ -191,16 +216,27 @@ class TrainingExamplesGenerator:
         
         Arguments:
         count -- number of examples to generate
+        saved -- save the audio files as wav or not
+        path -- path to save the files
         
         Returns:
         x -- the spectrogram of the training examples
         y -- the label at each time step of the spectrograms
         """
+
         X = []
         Y = []
+        if self.log:
+            print('count\tpos\tneg\ttot\n')
+
         for i in range(count):
-            x, y = self._create_training_example(name=path+str(i), saved=True)
+            if self.log: 
+                print('{}\t'.format(i), end='')
+            x, y = self._create_training_example(name=path+str(i), saved=saved)
+            if self.log: 
+                print('')
             X.append(x)
-            y.append(y)
+            Y.append(y)
+        print('')
         
-        return X, Y
+        return np.array(X), np.array(Y)

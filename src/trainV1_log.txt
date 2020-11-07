@@ -1,0 +1,25 @@
+background length: 9985 
+
+Number of background: 10 
+
+Number of activate examples: 12 
+
+Number of negative examples: 13 
+
+count	pos	neg	tot
+
+
+0	2	1	3
+1	1	1	2background length: 9985 
+
+Number of background: 10 
+
+Number of activate examples: 12 
+
+Number of negative examples: 13 
+
+count	pos	neg	tot
+
+
+0	2	1	3
+1	1	1	2

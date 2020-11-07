@@ -137,8 +137,8 @@
 # from Utils.audio import record_audio
 # record_audio(1.3, '6.wav')
 # import numpy as np
-# a = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-# a[9:9+5] = 1
+# a = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+# a[9:9+5] = [1]
 # print(a)
 
 # import matplotlib.pyplot as plt
@@ -152,13 +152,29 @@
 # plt.show()
 
 from Utils.train_utils import TrainingExamplesGenerator
+import matplotlib.pyplot as plt
 
 G = TrainingExamplesGenerator()
 G.load_data(path='raw_data')
-G.generate_examples(1,saved=True)
+X,Y = G.generate_examples(2,saved=True)
+print(X.shape)
+print(Y.shape)
+# plt.clf()
+# plt.plot(Y[0,:,0])
+# plt.show()
+
 # print(len(G.backgrounds))
 # print(len(G.positives))
 # print(len(G.negatives))
 # from Utils.td_utils import get_wav_info
 # from pydub import AudioSegment
 # d1 = AudioSegment.from_wav
+
+# from pydub import AudioSegment
+# from scipy.io import wavfile
+# import numpy as np
+
+# rate, data = wavfile.read('0.wav')
+# print(data.shape)
+# A = AudioSegment.from_wav('0.wav')
+# print(np.array(A.get_array_of_samples()).shape)
