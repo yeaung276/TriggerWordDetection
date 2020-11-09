@@ -1,4 +1,4 @@
-### Dependencies
+### Reference
     Utils Function from Coursera Sequence Model(Trigger Word Detection System)
     
 ### Reference Sites
