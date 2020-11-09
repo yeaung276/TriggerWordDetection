@@ -210,7 +210,7 @@ class TrainingExamplesGenerator:
         else:
             return np.array(sequence[:self.Tx])
 
-    def generate_examples(self, count, saved=False, path=''):
+    def generate_examples(self, count, batch_size=10, saved=False, path=''):
         """
         Creates a training example with a given background, activates, and negatives.
         
@@ -229,7 +229,7 @@ class TrainingExamplesGenerator:
         if self.log:
             print('count\tpos\tneg\ttot\n')
 
-        for i in range(count):
+        for i in range(1,count+1):
             if self.log: 
                 print('{}\t'.format(i), end='')
             x, y = self._create_training_example(name=path+str(i), saved=saved)
@@ -237,11 +237,9 @@ class TrainingExamplesGenerator:
                 print('')
             X.append(x)
             Y.append(y)
-            if i%100 == 0 and i is not 0:
-              np.save('training_data/trainX_{}.npy'.format(int(i/100)),np.array(X))
-              np.save('training_data/trainY_{}.npy'.format(int(i/100)),np.array(Y))
+            if i%batch_size == 0 and i is not 0:
+              yield np.array(X), np.array(Y)
               X = []
               Y = []
-        print('')
+        print('complete data generation...')
         
-        return np.array(X), np.array(Y)

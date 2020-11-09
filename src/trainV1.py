@@ -19,22 +19,23 @@ def generate_data():
         seed=10
     )
     Generator.load_data(path='raw_data')
-    X, Y = Generator.generate_examples(2000)
-    np.save('train_X.npy', X)
-    np.save('train_Y.npy', Y)
+    for X, Y in Generator.generate_examples(2000):
+      np.save('train_X.npy', X)
+      np.save('train_Y.npy', Y)
 
 # Training Data
 def Train():
-  global X
-  global Y
-
-  X = np.load('training_data/X_train.npy')
-  Y = np.load('training_data/Y_train.npy')
+  Generator = TrainingExamplesGenerator(
+        log=True, 
+        seed=10
+    )
+  Generator.load_data(path='raw_data')
+  gen = Generator.generate_examples(2000, batch_size=5)
   
   model = create_tr_model(tr_input_shape)
   opt = Adam(lr=0.0001, beta_1=0.9, beta_2=0.999, decay=0.01)
   model.compile(loss='binary_crossentropy', optimizer=opt, metrics=["accuracy"])
-  model.fit(X, Y, batch_size = 5, epochs=100)
+  model.fit(gen, steps_per_epoch=2000/5, epochs=100)
   model.save('Models/model1.h5')
 
 sys.stdout = Logger('trainV1_log.txt')
