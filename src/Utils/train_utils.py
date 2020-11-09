@@ -70,7 +70,7 @@ class TrainingExamplesGenerator:
         # Step 2: loop over the previous_segments start and end times.
         # Compare start/end times and set the flag to True if there is an overlap (≈ 3 lines)
         for previous_start, previous_end in self._previous_segments:
-            if segment_start <= previous_end and previous_start <= segment_end:
+            if previous_start <= segment_start <= previous_end or previous_start <= segment_end <= previous_end:
                 overlap = True
 
         return overlap
