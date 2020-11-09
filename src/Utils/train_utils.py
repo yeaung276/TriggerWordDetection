@@ -237,6 +237,11 @@ class TrainingExamplesGenerator:
                 print('')
             X.append(x)
             Y.append(y)
+            if i%100 == 0 and i is not 0:
+              np.save('training_data/trainX_{}.npy'.format(int(i/100)),np.array(X))
+              np.save('training_data/trainY_{}.npy'.format(int(i/100)),np.array(Y))
+              X = []
+              Y = []
         print('')
         
         return np.array(X), np.array(Y)
