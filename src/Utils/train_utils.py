@@ -1,4 +1,7 @@
 import numpy as np
+import os
+
+from pydub import AudioSegment
 from Utils.td_utils import load_raw_audio, match_target_amplitude, graph_spectrogram
 
 class TrainingExamplesGenerator:
@@ -18,25 +21,59 @@ class TrainingExamplesGenerator:
         self.no_of_ones = no_of_ones_sequence
         self.Ty = output_sequence_length
         self.log = log
+        self.seed = seed
         # Set the random seed
-        np.random.seed(seed)
+        np.random.seed(0)
         
-    def load_data(self, path = ''):
+    def load_data(self, path = '', target_db=None):
         """
         load the data from the path. The path has positives, negatives, and backgrounds folders 
         each containing respective audio files
         Args: 
             path: string => folder path
             log: flag => whether to return the dataset information
+            target_db: int => target decible level of the loaded audio
         """
-        self.positives, self.negatives, self.backgrounds = load_raw_audio(path)
+        self.positives, self.negatives, self.backgrounds = self.__load_raw_audio(path,target_db)
         if self.log:
             print("background length: " + str(len(self.backgrounds[0])),"\n")
             print("Number of background: " + str(len(self.backgrounds)),"\n")
             print("Number of activate examples: " + str(len(self.positives)),"\n")
             print("Number of negative examples: " + str(len(self.negatives)),"\n")
 
-    def _get_random_time_segment(self, segment_ms):
+    @staticmethod
+    def __load_raw_audio(path, db):
+        """
+        load the audio datas from the folder
+        Args: path -- data path
+              db -- target decibel level
+            
+        return: array of activates, negatives, backgrounds
+        """
+        activates = []
+        backgrounds = []
+        negatives = []
+        for filename in os.listdir(path + "/positives"):
+            if filename.endswith("wav"):
+                activate = AudioSegment.from_wav(path + "/positives/"+filename)
+                if db is not None:
+                    activate = match_target_amplitude(activate, db)
+                activates.append(activate)
+        for filename in os.listdir(path + "/backgrounds"):
+            if filename.endswith("wav"):
+                background = AudioSegment.from_wav(path + "/backgrounds/"+filename)
+                if db is not None:
+                    background = match_target_amplitude(background, db)
+                backgrounds.append(background)
+        for filename in os.listdir(path + "/negatives"):
+            if filename.endswith("wav"):
+                negative = AudioSegment.from_wav(path + "/negatives/"+filename)
+                if db is not None:
+                    negative = match_target_amplitude(negative, db)
+                negatives.append(negative)
+        return activates, negatives, backgrounds
+
+    def __get_random_time_segment(self, segment_ms):
         """
         Gets a random time segment of duration segment_ms in a 10,000 ms audio clip.
         
@@ -51,7 +88,7 @@ class TrainingExamplesGenerator:
         segment_end = segment_start + segment_ms - 1
         return (segment_start, segment_end)
     
-    def _is_overlapping(self, segment_time):
+    def __is_overlapping(self, segment_time):
         """
         Checks if the time of a segment overlaps with the times of existing segments.
         
@@ -93,12 +130,12 @@ class TrainingExamplesGenerator:
         
         # Step 1: Use one of the helper functions to pick a random time segment onto which to insert 
         # the new audio clip. (≈ 1 line)
-        segment_time = self._get_random_time_segment(segment_ms)
+        segment_time = self.__get_random_time_segment(segment_ms)
         
         # Step 2: Check if the new segment_time overlaps with one of the previous_segments. If so, keep 
         # picking new segment_time at random until it doesn't overlap. (≈ 2 lines)
-        while self._is_overlapping(segment_time):
-            segment_time = self._get_random_time_segment(segment_ms)
+        while self.__is_overlapping(segment_time):
+            segment_time = self.__get_random_time_segment(segment_ms)
 
         # Step 3: Append the new segment_time to the list of previous_segments (≈ 1 line)
         self._previous_segments.append(segment_time)
@@ -108,7 +145,7 @@ class TrainingExamplesGenerator:
         
         return new_background, segment_time
 
-    def _get_y_labels(self, y, segment_end_ms):
+    def __get_y_labels(self, y, segment_end_ms):
         """
         Update the label vector y. The labels of the 50 output steps strictly after the end of the segment 
         should be set to 1. By strictly we mean that the label of segment_end_y should be 0 while, the
@@ -132,7 +169,7 @@ class TrainingExamplesGenerator:
         
         return y
 
-    def _create_training_example(self, saved=False, name='untitled'):
+    def __create_training_example(self, saved=False, name='untitled'):
         """
         Creates a training example with a given background, activates, and negatives.
         
@@ -169,7 +206,7 @@ class TrainingExamplesGenerator:
             # Retrieve segment_start and segment_end from segment_time
             segment_start, segment_end = segment_time
             # Insert labels in "y"
-            y = self._get_y_labels(y, segment_end)
+            y = self.__get_y_labels(y, segment_end)
 
         # Select 0-2 random negatives audio recordings from the entire list of "negatives" recordings
         number_of_negatives = np.random.randint(1, 3)
@@ -191,12 +228,12 @@ class TrainingExamplesGenerator:
             print("File ({}.wav) was saved in your directory.".format(name))
         
         # Get and plot spectrogram of the new recording (background with superposition of positive and negatives)
-        sequence = self._pad_sequence(background.get_array_of_samples())
+        sequence = self.__pad_sequence(background.get_array_of_samples())
         x = graph_spectrogram(sequence).swapaxes(0,1)
         
         return x, y
 
-    def _pad_sequence(self, sequence):
+    def __pad_sequence(self, sequence):
         """
         Make sure the sequence has correct length by padding with zeros at the end or cutting it 
         Args - sequence: sequence to be padded or cutted
@@ -209,6 +246,13 @@ class TrainingExamplesGenerator:
             return np.array(sequence)
         else:
             return np.array(sequence[:self.Tx])
+
+    def create_an_example(self,name=''):
+        """
+        create the training example and save it
+        Arg: name: str => path of the file to be saved
+        """
+        self.__create_training_example(name=name, saved=True)
 
     def generate_examples(self, count, batch_size=10, saved=False, path=''):
         """
@@ -228,18 +272,19 @@ class TrainingExamplesGenerator:
         Y = []
         if self.log:
             print('count\tpos\tneg\ttot\n')
-
-        for i in range(1,count+1):
-            if self.log: 
-                print('{}\t'.format(i), end='')
-            x, y = self._create_training_example(name=path+str(i), saved=saved)
-            if self.log: 
-                print('')
-            X.append(x)
-            Y.append(y)
-            if i%batch_size == 0 and i is not 0:
-              yield np.array(X), np.array(Y)
-              X = []
-              Y = []
-        print('complete data generation...')
+        while True:
+            np.random.seed(self.seed)
+            for i in range(1,count+1):
+                if self.log: 
+                    print('{}\t'.format(i), end='')
+                x, y = self.__create_training_example(name=path+str(i), saved=saved)
+                if self.log: 
+                    print('')
+                X.append(x)
+                Y.append(y)
+                if i%batch_size == 0 and i is not 0:
+                    yield np.array(X), np.array(Y)
+                X = []
+                Y = []
+            print('complete data generation...')
         

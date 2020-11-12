@@ -5,14 +5,12 @@ from keras.optimizers import Adam
 
 from configs.tr_config import tr_input_shape
 from configs.tr_config import nfft, fs, noverlap
-from Net_Architectures.tr_model import create_model
 from Utils.td_utils import graph_spectrogram, get_wav_info
 
 
 class TriggerWordDetector:
     def __init__(self, model:str):
-        self.model = create_model()
-        # self.model.load_weights(model)
+        self.model = load_model(model)
 
     def predict_on_wav_file(self, filename: str):
         """
@@ -25,7 +23,7 @@ class TriggerWordDetector:
         assert x.shape == tr_input_shape, 'invalid input shape. Expected {},' \
             'but get{}'.format(tr_input_shape,x.shape)
         x = np.expand_dims(x, axis=0)
-        predictions = model.predict(x)
+        predictions = self.model.predict(x)
         return predictions
 
     def get_spectrogram(self, data):
@@ -51,5 +49,28 @@ class TriggerWordDetector:
 # model.compile(loss='binary_crossentropy', optimizer=opt, metrics=["accuracy"])
 # model.load_weights('Models/tr_model.h5', skip_mismatch=True)
 # model.summary()
-d = TriggerWordDetector(model='Models/tr_model.h5')
-d.test()
+from pydub import AudioSegment
+chime_file = "Audios/chime.wav"
+def chime_on_activate(filename, predictions, threshold):
+    audio_clip = AudioSegment.from_wav(filename)
+    chime = AudioSegment.from_wav(chime_file)
+    Ty = predictions.shape[1]
+    # Step 1: Initialize the number of consecutive output steps to 0
+    consecutive_timesteps = 0
+    # Step 2: Loop over the output steps in the y
+    for i in range(Ty):
+        # Step 3: Increment consecutive output steps
+        consecutive_timesteps += 1
+        # Step 4: If prediction is higher than the threshold and more than 75 consecutive output steps have passed
+        if predictions[0,i,0] > threshold and consecutive_timesteps > 75:
+            # Step 5: Superpose audio and background using pydub
+            audio_clip = audio_clip.overlay(chime, position = ((i / Ty) * audio_clip.duration_seconds)*1000)
+            # Step 6: Reset consecutive output steps to 0
+            consecutive_timesteps = 0
+        
+    audio_clip.export("chime_output.wav", format='wav')
+
+d = TriggerWordDetector(model='Models/model1.h5')
+preds = d.predict_on_wav_file('Audios/example_train.wav')
+chime_on_activate('Audios/example_train.wav',preds,0.5)
+

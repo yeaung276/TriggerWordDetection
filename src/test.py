@@ -131,9 +131,10 @@
 # from Net_Architectures.tr_model import create_model
 
 # model = create_model()
-# model.summary()
-# from keras.models import load_model
-# model = load_model('./Models/tr_model.h5')
+from keras.models import load_model
+model = load_model('./Models/model1.h5')
+model.summary()
+
 # from Utils.audio import record_audio
 # record_audio(1.3, '6.wav')
 # import numpy as np
@@ -151,14 +152,14 @@
 # plt.plot(d)
 # plt.show()
 
-from Utils.train_utils import TrainingExamplesGenerator
-import matplotlib.pyplot as plt
+# from Utils.train_utils import TrainingExamplesGenerator
+# import matplotlib.pyplot as plt
 
-G = TrainingExamplesGenerator()
-G.load_data(path='raw_data')
-X,Y = G.generate_examples(2,saved=True)
-print(X.shape)
-print(Y.shape)
+# G = TrainingExamplesGenerator()
+# G.load_data(path='raw_data')
+# X,Y = G.generate_examples(2,saved=True)
+# print(X.shape)
+# print(Y.shape)
 # plt.clf()
 # plt.plot(Y[0,:,0])
 # plt.show()
