@@ -131,9 +131,9 @@
 # from Net_Architectures.tr_model import create_model
 
 # model = create_model()
-from keras.models import load_model
-model = load_model('./Models/model1.h5')
-model.summary()
+# from keras.models import load_model
+# model = load_model('./Models/model1.h5')
+# model.summary()
 
 # from Utils.audio import record_audio
 # record_audio(1.3, '6.wav')
@@ -179,3 +179,10 @@ model.summary()
 # print(data.shape)
 # A = AudioSegment.from_wav('0.wav')
 # print(np.array(A.get_array_of_samples()).shape)
+from Utils.train_utils import TrainingExamplesGenerator
+Generator = TrainingExamplesGenerator(
+    log=False, 
+    seed=0
+)
+Generator.load_data(path='raw_data')
+Generator.create_an_example(name='example',seed=1)

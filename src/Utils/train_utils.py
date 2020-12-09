@@ -247,11 +247,12 @@ class TrainingExamplesGenerator:
         else:
             return np.array(sequence[:self.Tx])
 
-    def create_an_example(self,name=''):
+    def create_an_example(self,name='',seed=0):
         """
         create the training example and save it
         Arg: name: str => path of the file to be saved
         """
+        np.random.seed(seed)
         self.__create_training_example(name=name, saved=True)
 
     def generate_examples(self, count, batch_size=10, saved=False, path=''):
@@ -282,7 +283,7 @@ class TrainingExamplesGenerator:
                     print('')
                 X.append(x)
                 Y.append(y)
-                if i%batch_size == 0 and i is not 0:
+                if i%batch_size == 0 and i != 0:
                     yield np.array(X), np.array(Y)
                 X = []
                 Y = []
