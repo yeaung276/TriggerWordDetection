@@ -179,10 +179,15 @@
 # print(data.shape)
 # A = AudioSegment.from_wav('0.wav')
 # print(np.array(A.get_array_of_samples()).shape)
-from Utils.train_utils import TrainingExamplesGenerator
-Generator = TrainingExamplesGenerator(
-    log=False, 
-    seed=0
-)
-Generator.load_data(path='raw_data')
-Generator.create_an_example(name='example',seed=1)
+# from Utils.train_utils import TrainingExamplesGenerator
+# Generator = TrainingExamplesGenerator(
+#     log=False, 
+#     seed=0
+# )
+# Generator.load_data(path='raw_data')
+# Generator.create_an_example(name='example',seed=1)
+from DataGenerator.data_generator import SpeechDataGenerator
+
+v = SpeechDataGenerator(positive_source='raw_data/positives', negative_source='raw_data/negatives',
+                        background_source='raw_data/backgrounds', target_db=-20)
+v.create_audio('hello')

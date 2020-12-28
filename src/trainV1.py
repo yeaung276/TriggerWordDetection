@@ -17,21 +17,6 @@ BETA_2 = 0.999
 DECAY_RATE = 0.01
 EPOCHS = 10
 
-# generating data
-X = None
-Y = None
-def generate_data():
-    global X
-    global Y
-   
-    Generator = TrainingExamplesGenerator(
-        log=True, 
-        seed=10
-    )
-    Generator.load_data(path='raw_data')
-    for X, Y in Generator.generate_examples(2000):
-      np.save('train_X.npy', X)
-      np.save('train_Y.npy', Y)
 
 # Training Data
 

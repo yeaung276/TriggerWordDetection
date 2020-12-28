@@ -285,7 +285,9 @@ class TrainingExamplesGenerator:
                 Y.append(y)
                 if i%batch_size == 0 and i != 0:
                     yield np.array(X), np.array(Y)
-                X = []
-                Y = []
+                    X = []
+                    Y = []
             print('complete data generation...')
+
+# TODO: watch this --https://stanford.edu/~shervine/blog/keras-how-to-generate-data-on-the-fly
         
